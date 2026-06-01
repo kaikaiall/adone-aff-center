@@ -26,7 +26,7 @@ export default function EditOfferForm({ offer }: { offer: any }) {
     e.preventDefault()
     setSaving(true)
     await fetch(`/api/admin/offers/${offer.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, optin_price: parseInt(form.optin_price) || 0 }),
     })
