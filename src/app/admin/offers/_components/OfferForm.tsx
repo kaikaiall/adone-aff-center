@@ -22,6 +22,7 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
 
   const set = (key: string, value: unknown) => setForm(prev => ({ ...prev, [key]: value }))
 
@@ -29,12 +30,16 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
     e.preventDefault()
     setSaving(true)
     setError('')
+    setSaved(false)
     try {
       const payload: Record<string, unknown> = {
         ...form,
         optin_price: parseInt(form.optin_price) || 0,
         backend_rate: null,
       }
+
+      // デバッグログ：送信データを確認
+      console.log('[OfferForm] 送信ペイロード:', JSON.stringify(payload, null, 2))
 
       const url = offerId ? `/api/admin/offers/${offerId}` : '/api/admin/offers'
       const method = offerId ? 'PATCH' : 'POST'
@@ -45,14 +50,32 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
         body: JSON.stringify(payload),
       })
 
+      const responseData = await res.json()
+      console.log('[OfferForm] APIレスポンス:', res.status, responseData)
+
       if (!res.ok) {
-        const data = await res.json()
-        setError(data.error || '保存に失敗しました')
+        setError(responseData.error || '保存に失敗しました')
         return
       }
-      router.push('/admin/offers')
-      router.refresh()
-    } catch {
+
+      // 編集の場合は画面遷移せず保存完了メッセージを表示
+      if (offerId) {
+        // 保存されたデータでフォームを更新（DBの実際の値を反映）
+        setForm({
+          ...defaultForm,
+          ...responseData,
+          optin_price: String(responseData?.optin_price ?? ''),
+        })
+        setSaved(true)
+        setTimeout(() => setSaved(false), 4000)
+        router.refresh()
+      } else {
+        // 新規作成の場合は一覧へ
+        router.push('/admin/offers')
+        router.refresh()
+      }
+    } catch (err) {
+      console.error('[OfferForm] エラー:', err)
       setError('通信エラーが発生しました')
     } finally {
       setSaving(false)
@@ -65,6 +88,11 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-4 md:p-6 space-y-5 max-w-2xl">
       {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+      {saved && (
+        <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-lg text-sm font-medium">
+          ✅ 保存しました
+        </div>
+      )}
 
       <div>
         <label className={labelClass}>案件名 *</label>
@@ -113,17 +141,17 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
 
       <div>
         <label className={labelClass}>バナー画像 URL</label>
-        <input type="url" value={form.banner_url} onChange={e => set('banner_url', e.target.value)} className={inputClass} placeholder="https://" />
+        <input type="text" value={form.banner_url} onChange={e => set('banner_url', e.target.value)} className={inputClass} placeholder="https://" />
       </div>
 
       <div>
         <label className={labelClass}>LP の URL</label>
-        <input type="url" value={form.lp_url} onChange={e => set('lp_url', e.target.value)} className={inputClass} placeholder="https://" />
+        <input type="text" value={form.lp_url} onChange={e => set('lp_url', e.target.value)} className={inputClass} placeholder="https://" />
       </div>
 
       <div>
         <label className={labelClass}>LINE 友だち追加 URL</label>
-        <input type="url" value={form.line_add_url} onChange={e => set('line_add_url', e.target.value)} className={inputClass} placeholder="https://line.me/R/ti/p/..." />
+        <input type="text" value={form.line_add_url} onChange={e => set('line_add_url', e.target.value)} className={inputClass} placeholder="https://line.me/R/ti/p/..." />
       </div>
 
       <div>
