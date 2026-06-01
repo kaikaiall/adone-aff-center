@@ -18,11 +18,13 @@ export default function EditOfferForm({ offer }: { offer: any }) {
     notes: offer.notes || '',
   })
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    const res = await fetch(`/api/admin/offers/${offer.id}`, {
+    setSaved(false)
+    await fetch(`/api/admin/offers/${offer.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -30,10 +32,9 @@ export default function EditOfferForm({ offer }: { offer: any }) {
         optin_price: parseInt(form.optin_price) || 0,
       }),
     })
-    const data = await res.json()
-    console.log('[EditOfferForm] PATCH result:', data)
     setSaving(false)
-    router.push('/admin/offers')
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
   }
 
   return (
@@ -95,7 +96,7 @@ export default function EditOfferForm({ offer }: { offer: any }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">バナー画像URL</label>
         <input
-          type="url"
+          type="text"
           value={form.banner_url}
           onChange={(e) => setForm({ ...form, banner_url: e.target.value })}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -104,7 +105,7 @@ export default function EditOfferForm({ offer }: { offer: any }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">LP URL</label>
         <input
-          type="url"
+          type="text"
           value={form.lp_url}
           onChange={(e) => setForm({ ...form, lp_url: e.target.value })}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -113,7 +114,7 @@ export default function EditOfferForm({ offer }: { offer: any }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">LINE 友だち追加 URL</label>
         <input
-          type="url"
+          type="text"
           value={form.line_add_url}
           onChange={(e) => setForm({ ...form, line_add_url: e.target.value })}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -146,6 +147,11 @@ export default function EditOfferForm({ offer }: { offer: any }) {
           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
         />
       </div>
+      {saved && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+          ✅ 保存しました
+        </div>
+      )}
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
