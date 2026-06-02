@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import AffiliateRegisterButton from './_components/AffiliateRegisterButton'
 import AffiliateEditModal from './_components/AffiliateEditModal'
+import ImpersonateButton from './_components/ImpersonateButton'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -55,7 +56,10 @@ export default async function AdminAffiliatesPage() {
                 </td>
                 <td className="px-4 py-2 text-gray-400 text-xs">{new Date(a.created_at).toLocaleDateString('ja-JP')}</td>
                 <td className="px-4 py-2">
-                  <AffiliateEditModal affiliate={a} />
+                  <div className="flex items-center gap-2">
+                    <AffiliateEditModal affiliate={a} />
+                    {a.is_active && <ImpersonateButton affiliateId={a.id} affiliateName={a.name} />}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -91,6 +95,11 @@ export default async function AdminAffiliatesPage() {
               )}
               <div className="text-gray-400">登録: {new Date(a.created_at).toLocaleDateString('ja-JP')}</div>
             </div>
+            {a.is_active && (
+              <div className="mt-2 pt-2 border-t">
+                <ImpersonateButton affiliateId={a.id} affiliateName={a.name} />
+              </div>
+            )}
           </div>
         ))}
         {(!affiliates || affiliates.length === 0) && (
