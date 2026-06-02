@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
@@ -51,6 +52,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[POST /api/admin/offers] Created:', data?.id)
+
+    // Next.jsのページキャッシュを無効化（一覧画面）
+    revalidatePath('/admin/offers')
+
     return Response.json(data, { status: 201 })
   } catch (error) {
     console.error('[POST /api/admin/offers] Catch:', error)
