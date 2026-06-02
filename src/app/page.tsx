@@ -19,11 +19,6 @@ export default function HomePage() {
             管理者ログイン
           </Link>
         </div>
-        <div className="mt-6 pt-4 border-t text-xs text-gray-400 text-left space-y-1">
-          <p className="font-medium text-gray-500">テストアカウント</p>
-          <p>管理者パスワード: admin1234</p>
-          <p>アフィリエイター: tanaka@test.com / test1234</p>
-        </div>
       </div>
     </div>
   )
