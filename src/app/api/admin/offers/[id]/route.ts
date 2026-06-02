@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
@@ -57,6 +58,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     console.log('[PATCH offers] Success:', JSON.stringify(data))
+
+    // Next.jsのページキャッシュを無効化（編集画面と一覧画面）
+    revalidatePath(`/admin/offers/${params.id}/edit`)
+    revalidatePath('/admin/offers')
+
     return Response.json(data)
   } catch (error) {
     console.error('[PATCH offers] Catch:', error)
@@ -68,6 +74,10 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   try {
     const { error } = await supabaseAdmin.from('offers').delete().eq('id', params.id)
     if (error) throw error
+
+    // Next.jsのページキャッシュを無効化
+    revalidatePath('/admin/offers')
+
     return Response.json({ ok: true })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
