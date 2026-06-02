@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('[POST /api/admin/offers] Body:', JSON.stringify(body))
 
-    // DBのUUID DEFAULT gen_random_uuid()に任せる（手動ID不要）
+    // クライアントから来たidは破棄
     delete body.id
 
     // 必須項目チェック
@@ -37,9 +37,13 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'オプトイン単価は必須です' }, { status: 400 })
     }
 
+    // 注：offersテーブルのidは自動生成が効かないため、サーバー側で明示生成
+    // 既存offer ID命名規則に合わせる（offer_<timestamp>_<random>）
+    const newId = `offer_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+
     const { data, error } = await supabaseAdmin
       .from('offers')
-      .insert(body)
+      .insert({ id: newId, ...body })
       .select()
       .single()
 
