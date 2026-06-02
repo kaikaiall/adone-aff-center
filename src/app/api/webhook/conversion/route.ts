@@ -7,12 +7,21 @@ import { supabaseAdmin } from '@/lib/supabase'
  * 対応CRM: Lステップ, UTAGE, エルメ, プロライン, MyASP 等
  * GET / POST 両対応
  *
- * GET 例（プロライン）:
- *   /api/webhook/conversion?source=proline&lineUserId=[[uid]]&displayName=[[snsname]]&offerId=offer_001&cid=aff_001
+ * 【重要：安全設計】
+ * CRMツールのステップ配信を絶対に止めないために、
+ * このエンドポイントは「常に 200 OK」を返す方針を採用しています。
+ * - バリデーションエラー → 200（warningを含むレスポンス）
+ * - DBエラー → 200（errorを含むレスポンス）
+ * - 正常処理 → 200（successを含むレスポンス）
  *
- * POST 例（JSON）:
- *   { "source": "lstep", "lineUserId": "Uxxx", "displayName": "名前", "offerId": "offer_001", "cid": "aff_001" }
+ * これにより、CRM 側はリトライ／停止せず、ステップ配信は通常通り流れます。
+ * エラー詳細は Vercel ログから確認可能です。
  */
+
+/** ステップ配信を阻害しない安全な応答ヘルパー */
+function safeResponse(body: Record<string, unknown>, status = 200) {
+  return Response.json({ status: 'received', ...body }, { status })
+}
 
 /** クエリパラメータまたはボディから正規化されたフィールドを取り出す共通処理 */
 function normalizeParams(params: Record<string, unknown>) {
@@ -50,154 +59,147 @@ async function handleConversion(
 ): Promise<Response> {
   console.log('[Webhook] Normalized:', JSON.stringify(normalized))
 
-  // 必須フィールドチェック
+  // 必須フィールドチェック（エラーでも 200 を返してステップ配信を保護）
   if (!normalized.lineUserId) {
-    return Response.json({
-      error: 'Missing required field: lineUserId',
-      debug: { received: rawPayload, normalized },
-    }, { status: 400 })
+    console.warn('[Webhook] Missing lineUserId')
+    return safeResponse({ warning: 'Missing lineUserId', debug: { received: rawPayload } })
   }
   if (!normalized.cid) {
-    return Response.json({
-      error: 'Missing required field: cid',
-      debug: { received: rawPayload, normalized },
-    }, { status: 400 })
+    console.warn('[Webhook] Missing cid')
+    return safeResponse({ warning: 'Missing cid', debug: { received: rawPayload } })
   }
   if (!normalized.offerId) {
-    return Response.json({
-      error: 'Missing required field: offerId',
-      debug: { received: rawPayload, normalized },
-    }, { status: 400 })
+    console.warn('[Webhook] Missing offerId')
+    return safeResponse({ warning: 'Missing offerId', debug: { received: rawPayload } })
   }
 
-  // アフィリエイターID を解決
-  let affiliateId: string | null = null
+  try {
+    // アフィリエイターID を解決
+    let affiliateId: string | null = null
 
-  // affiliate_links テーブルから cid で検索
-  console.log('[Webhook] Looking up affiliate_links with cid:', normalized.cid)
-  const { data: linkData, error: linkError } = await supabaseAdmin
-    .from('affiliate_links')
-    .select('affiliate_id')
-    .eq('cid', normalized.cid)
-    .maybeSingle()
-
-  if (linkError) console.error('[Webhook] affiliate_links lookup error:', linkError)
-
-  if (linkData) {
-    affiliateId = linkData.affiliate_id
-    console.log('[Webhook] Affiliate found via affiliate_links:', affiliateId)
-  } else {
-    // cid が直接アフィリエイター ID（aff_001 等）の場合
-    console.log('[Webhook] Not in affiliate_links, trying direct id:', normalized.cid)
-    const { data: affData, error: affError } = await supabaseAdmin
-      .from('affiliates')
-      .select('id')
-      .eq('id', normalized.cid)
+    console.log('[Webhook] Looking up affiliate_links with cid:', normalized.cid)
+    const { data: linkData, error: linkError } = await supabaseAdmin
+      .from('affiliate_links')
+      .select('affiliate_id')
+      .eq('cid', normalized.cid)
       .maybeSingle()
 
-    if (affError) console.error('[Webhook] affiliates lookup error:', affError)
+    if (linkError) console.error('[Webhook] affiliate_links lookup error:', linkError)
 
-    if (affData) {
-      affiliateId = affData.id
-      console.log('[Webhook] Affiliate found via direct id:', affiliateId)
+    if (linkData) {
+      affiliateId = linkData.affiliate_id
+      console.log('[Webhook] Affiliate found via affiliate_links:', affiliateId)
+    } else {
+      // cid が直接アフィリエイター ID（aff_001 等）の場合
+      console.log('[Webhook] Not in affiliate_links, trying direct id:', normalized.cid)
+      const { data: affData, error: affError } = await supabaseAdmin
+        .from('affiliates')
+        .select('id')
+        .eq('id', normalized.cid)
+        .maybeSingle()
+
+      if (affError) console.error('[Webhook] affiliates lookup error:', affError)
+
+      if (affData) {
+        affiliateId = affData.id
+        console.log('[Webhook] Affiliate found via direct id:', affiliateId)
+      }
     }
-  }
 
-  if (!affiliateId) {
-    return Response.json({
-      error: 'Affiliate not found',
-      debug: { cid: normalized.cid, failedAt: 'affiliate_lookup' },
-    }, { status: 400 })
-  }
+    if (!affiliateId) {
+      console.warn('[Webhook] Affiliate not found for cid:', normalized.cid)
+      return safeResponse({ warning: 'Affiliate not found', debug: { cid: normalized.cid } })
+    }
 
-  // 案件IDを検証
-  console.log('[Webhook] Checking offer:', normalized.offerId)
-  const { data: offerData, error: offerError } = await supabaseAdmin
-    .from('offers')
-    .select('id')
-    .eq('id', normalized.offerId)
-    .maybeSingle()
+    // 案件IDを検証
+    console.log('[Webhook] Checking offer:', normalized.offerId)
+    const { data: offerData, error: offerError } = await supabaseAdmin
+      .from('offers')
+      .select('id')
+      .eq('id', normalized.offerId)
+      .maybeSingle()
 
-  if (offerError) console.error('[Webhook] offers lookup error:', offerError)
+    if (offerError) console.error('[Webhook] offers lookup error:', offerError)
 
-  if (!offerData) {
-    return Response.json({
-      error: 'Offer not found',
-      debug: { offerId: normalized.offerId, failedAt: 'offer_lookup' },
-    }, { status: 400 })
-  }
+    if (!offerData) {
+      console.warn('[Webhook] Offer not found:', normalized.offerId)
+      return safeResponse({ warning: 'Offer not found', debug: { offerId: normalized.offerId } })
+    }
 
-  // 重複チェック（同一 LINE UID + 案件 + アフィリエイター）
-  const { data: existingConv } = await supabaseAdmin
-    .from('conversions')
-    .select('id, status')
-    .eq('line_user_id', normalized.lineUserId)
-    .eq('offer_id', normalized.offerId)
-    .eq('affiliate_id', affiliateId)
-    .maybeSingle()
+    // 重複チェック（同一 LINE UID + 案件 + アフィリエイター）
+    const { data: existingConv } = await supabaseAdmin
+      .from('conversions')
+      .select('id, status')
+      .eq('line_user_id', normalized.lineUserId)
+      .eq('offer_id', normalized.offerId)
+      .eq('affiliate_id', affiliateId)
+      .maybeSingle()
 
-  if (existingConv) {
-    console.log('[Webhook] Duplicate conversion detected:', existingConv.id)
-    return Response.json({
+    if (existingConv) {
+      console.log('[Webhook] Duplicate conversion detected:', existingConv.id)
+      return safeResponse({
+        success: true,
+        conversionId: existingConv.id,
+        status: existingConv.status,
+        duplicate: true,
+      })
+    }
+
+    // 成果を挿入
+    const ipAddress =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      null
+    const userAgent = request.headers.get('user-agent') || null
+
+    console.log('[Webhook] Inserting conversion...')
+    const { data: conversion, error: convError } = await supabaseAdmin
+      .from('conversions')
+      .insert({
+        affiliate_id: affiliateId,
+        offer_id: normalized.offerId,
+        line_user_id: normalized.lineUserId,
+        display_name: normalized.displayName,
+        status: 'pending',
+        source: normalized.source,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        raw_payload: rawPayload,
+      })
+      .select()
+      .single()
+
+    if (convError) {
+      console.error('[Webhook] Failed to insert conversion:', convError)
+      return safeResponse({ error: 'Failed to insert', debug: { message: convError.message } })
+    }
+
+    // LINE ユーザー情報を upsert（失敗してもメイン処理には影響させない）
+    const { error: userError } = await supabaseAdmin
+      .from('users')
+      .upsert({
+        line_user_id: normalized.lineUserId,
+        display_name: normalized.displayName,
+        last_seen_at: new Date().toISOString(),
+      }, {
+        onConflict: 'line_user_id',
+        ignoreDuplicates: false,
+      })
+
+    if (userError) console.warn('[Webhook] Users upsert warning:', userError)
+
+    console.log('[Webhook] ===== Success =====')
+    return safeResponse({
       success: true,
-      conversionId: existingConv.id,
-      status: existingConv.status,
-      duplicate: true,
-    }, { status: 200 })
-  }
-
-  // 成果を挿入
-  const ipAddress =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    null
-  const userAgent = request.headers.get('user-agent') || null
-
-  console.log('[Webhook] Inserting conversion...')
-  const { data: conversion, error: convError } = await supabaseAdmin
-    .from('conversions')
-    .insert({
-      affiliate_id: affiliateId,
-      offer_id: normalized.offerId,
-      line_user_id: normalized.lineUserId,
-      display_name: normalized.displayName,
-      status: 'pending',
-      source: normalized.source,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-      raw_payload: rawPayload,
+      conversionId: conversion.id,
     })
-    .select()
-    .single()
-
-  if (convError) {
-    console.error('[Webhook] Failed to insert conversion:', convError)
-    return Response.json({
-      error: 'Failed to insert conversion',
-      debug: { message: convError.message, details: convError.details },
-    }, { status: 500 })
-  }
-
-  // LINE ユーザー情報を upsert
-  const { error: userError } = await supabaseAdmin
-    .from('users')
-    .upsert({
-      line_user_id: normalized.lineUserId,
-      display_name: normalized.displayName,
-      last_seen_at: new Date().toISOString(),
-    }, {
-      onConflict: 'line_user_id',
-      ignoreDuplicates: false,
+  } catch (err) {
+    // 想定外の例外もキャッチ → ステップ配信を止めない
+    console.error('[Webhook] Unhandled exception:', err)
+    return safeResponse({
+      error: err instanceof Error ? err.message : 'Unknown error',
     })
-
-  if (userError) console.warn('[Webhook] Users upsert warning:', userError)
-
-  console.log('[Webhook] ===== Success =====')
-  return Response.json({
-    success: true,
-    conversionId: conversion.id,
-    status: 'pending',
-  }, { status: 200 })
+  }
 }
 
 // ─────────────────────────────────────────
@@ -222,6 +224,7 @@ export async function GET(request: NextRequest) {
       required: ['lineUserId', 'cid', 'offerId'],
       optional: ['displayName', 'source'],
       example_get: '/api/webhook/conversion?source=proline&lineUserId=Uxxx&displayName=名前&offerId=offer_001&cid=aff_001',
+      safety: 'This endpoint always returns 200 to protect CRM step delivery.',
     })
   }
 
@@ -231,9 +234,9 @@ export async function GET(request: NextRequest) {
     return await handleConversion(normalized, params, request)
   } catch (error) {
     console.error('[Webhook] Unexpected error (GET):', error)
-    return Response.json({
+    return safeResponse({
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 })
+    })
   }
 }
 
@@ -254,7 +257,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (parseErr) {
     console.error('[Webhook] Failed to parse body:', parseErr)
-    return Response.json({ error: 'Invalid request body' }, { status: 400 })
+    return safeResponse({ warning: 'Invalid request body' })
   }
 
   console.log('[Webhook] Received body:', JSON.stringify(body))
@@ -264,8 +267,8 @@ export async function POST(request: NextRequest) {
     return await handleConversion(normalized, body, request)
   } catch (error) {
     console.error('[Webhook] Unexpected error (POST):', error)
-    return Response.json({
+    return safeResponse({
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 })
+    })
   }
 }
