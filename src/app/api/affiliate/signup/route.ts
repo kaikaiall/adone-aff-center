@@ -76,9 +76,12 @@ export async function POST(request: NextRequest) {
     }
 
     // アフィリエイター作成
+    // 注：affiliatesテーブルのidは自動生成が効かないため、明示的にUUIDを生成する
+    const newId = crypto.randomUUID()
     const { data: affiliate, error: insertError } = await supabaseAdmin
       .from('affiliates')
       .insert({
+        id: newId,
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password_hash: password, // ※ 現状は既存システムに合わせて平文保存。将来的にbcrypt化を推奨。
