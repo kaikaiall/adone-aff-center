@@ -67,8 +67,14 @@ export default function AffiliateLoginPage() {
             {loading ? 'ログイン中...' : 'ログイン'}
           </button>
         </form>
-        <div className="text-center mt-4">
-          <Link href="/" className="text-xs text-gray-400 hover:text-gray-600">← トップへ</Link>
+        <div className="text-center text-xs text-gray-500 mt-5 space-y-2">
+          <p>
+            アカウントをお持ちでない方は{' '}
+            <Link href="/affiliate/signup" className="text-green-600 hover:underline">
+              新規登録
+            </Link>
+          </p>
+          <Link href="/" className="text-gray-400 hover:text-gray-600 inline-block">← トップへ</Link>
         </div>
       </div>
     </div>
