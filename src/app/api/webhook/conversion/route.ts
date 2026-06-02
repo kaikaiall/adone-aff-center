@@ -59,6 +59,24 @@ async function handleConversion(
 ): Promise<Response> {
   console.log('[Webhook] Normalized:', JSON.stringify(normalized))
 
+  // ─────────────────────────────────────────
+  // セキュリティ：シークレットトークン検証
+  // 環境変数 WEBHOOK_SECRET が設定されていれば、リクエストにも同値が必要
+  // 一致しない場合は「200を返しつつ」DB書き込みを行わない（ステップ配信は保護）
+  // ─────────────────────────────────────────
+  const requiredSecret = process.env.WEBHOOK_SECRET
+  if (requiredSecret) {
+    const providedSecret = (rawPayload.secret as string) || (rawPayload.token as string) || ''
+    if (providedSecret !== requiredSecret) {
+      console.warn('[Webhook] 🚫 Unauthorized: secret mismatch')
+      return safeResponse({
+        warning: 'Unauthorized: invalid or missing secret',
+        debug: { providedSecretLength: providedSecret.length },
+      })
+    }
+    console.log('[Webhook] ✅ Secret verified')
+  }
+
   // 必須フィールドチェック（エラーでも 200 を返してステップ配信を保護）
   if (!normalized.lineUserId) {
     console.warn('[Webhook] Missing lineUserId')
