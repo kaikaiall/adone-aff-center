@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import WebhookUrlPanel from './WebhookUrlPanel'
 
 interface OfferFormProps {
   initialData?: Record<string, unknown>
@@ -158,6 +159,9 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
         <label className={labelClass}>注意事項</label>
         <textarea rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} className={inputClass} />
       </div>
+
+      {/* CRM連携Webhook URLパネル（編集時のみ表示） */}
+      {offerId && <WebhookUrlPanel offerId={offerId} />}
 
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving} className="flex-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium transition-colors">
