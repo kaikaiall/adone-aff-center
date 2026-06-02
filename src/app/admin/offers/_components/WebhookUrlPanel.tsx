@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 
 interface WebhookUrlPanelProps {
   offerId: string
+  webhookSecret?: string
 }
 
 type CRMKey = 'proline' | 'lstep' | 'utage' | 'lme' | 'myasp' | 'generic'
@@ -99,7 +100,7 @@ const CRM_CONFIGS: CRMConfig[] = [
   },
 ]
 
-export default function WebhookUrlPanel({ offerId }: WebhookUrlPanelProps) {
+export default function WebhookUrlPanel({ offerId, webhookSecret }: WebhookUrlPanelProps) {
   const [activeCRM, setActiveCRM] = useState<CRMKey>('proline')
   const [baseUrl, setBaseUrl] = useState('')
   const [copied, setCopied] = useState(false)
@@ -111,7 +112,11 @@ export default function WebhookUrlPanel({ offerId }: WebhookUrlPanelProps) {
   }, [])
 
   const currentConfig = CRM_CONFIGS.find(c => c.key === activeCRM)!
-  const webhookUrl = baseUrl ? currentConfig.url(baseUrl, offerId) : ''
+  const baseGeneratedUrl = baseUrl ? currentConfig.url(baseUrl, offerId) : ''
+  // シークレットが設定されている場合は末尾に &secret=xxx を付与
+  const webhookUrl = baseGeneratedUrl && webhookSecret
+    ? `${baseGeneratedUrl}&secret=${encodeURIComponent(webhookSecret)}`
+    : baseGeneratedUrl
 
   const handleCopy = async () => {
     if (!webhookUrl) return
@@ -130,6 +135,17 @@ export default function WebhookUrlPanel({ offerId }: WebhookUrlPanelProps) {
       <p className="text-xs text-gray-500 mb-3">
         利用するCRMツールを選んでURLをコピーし、各CRMの「外部通知」設定に貼り付けてください。
       </p>
+
+      {/* セキュリティ警告：シークレット未設定時 */}
+      {!webhookSecret && (
+        <div className="bg-red-50 border border-red-300 rounded-lg p-3 mb-3">
+          <p className="text-xs font-semibold text-red-800 mb-1">⚠️ セキュリティ警告</p>
+          <p className="text-xs text-red-700">
+            Webhookのシークレットキーが設定されていません。Vercelの環境変数に <code className="bg-red-100 px-1 rounded">WEBHOOK_SECRET</code> を設定することを強く推奨します。
+            設定しないと第三者が成果を偽造できる可能性があります。
+          </p>
+        </div>
+      )}
 
       {/* タブ */}
       <div className="flex flex-wrap gap-1 mb-3 border-b border-gray-200">
