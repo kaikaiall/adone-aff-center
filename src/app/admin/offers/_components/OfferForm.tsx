@@ -6,6 +6,7 @@ import WebhookUrlPanel from './WebhookUrlPanel'
 interface OfferFormProps {
   initialData?: Record<string, unknown>
   offerId?: string
+  webhookSecret?: string
 }
 
 const defaultForm = {
@@ -14,7 +15,7 @@ const defaultForm = {
   appeal_points: '', target_audience: '', notes: '', is_active: true,
 }
 
-export default function OfferForm({ initialData, offerId }: OfferFormProps) {
+export default function OfferForm({ initialData, offerId, webhookSecret }: OfferFormProps) {
   const router = useRouter()
   const [form, setForm] = useState({
     ...defaultForm,
@@ -161,7 +162,7 @@ export default function OfferForm({ initialData, offerId }: OfferFormProps) {
       </div>
 
       {/* CRM連携Webhook URLパネル（編集時のみ表示） */}
-      {offerId && <WebhookUrlPanel offerId={offerId} />}
+      {offerId && <WebhookUrlPanel offerId={offerId} webhookSecret={webhookSecret} />}
 
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving} className="flex-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium transition-colors">
