@@ -2,8 +2,13 @@ import { NextRequest } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
+    const adminPassword = process.env.ADMIN_PASSWORD
+    if (!adminPassword) {
+      console.error('[Admin Login] ADMIN_PASSWORD env var is not set')
+      return Response.json({ error: 'サーバー設定エラー' }, { status: 500 })
+    }
+
     const { password } = await request.json()
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234'
 
     if (!password || password !== adminPassword) {
       return Response.json({ error: 'パスワードが正しくありません' }, { status: 401 })

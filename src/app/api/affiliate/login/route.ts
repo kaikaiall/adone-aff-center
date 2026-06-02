@@ -34,10 +34,11 @@ export async function POST(request: NextRequest) {
     console.log('[Affiliate Login] Success:', affiliate.id)
     const headers = new Headers()
     headers.set('Content-Type', 'application/json')
-    headers.set(
+    headers.append(
       'Set-Cookie',
       `affiliate_session=${affiliate.id}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`
     )
+    headers.append('Set-Cookie', 'admin_impersonating=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax')
     return new Response(JSON.stringify({ ok: true, name: affiliate.name }), { status: 200, headers })
   } catch (error) {
     console.error('[Affiliate Login Error]', error)
