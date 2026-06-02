@@ -29,7 +29,11 @@ export default async function EditOfferPage({ params }: { params: { id: string }
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-2">案件編集</h1>
       <p className="text-sm text-gray-400 mb-6">ID: {offer.id}</p>
-      <OfferForm initialData={offer} offerId={offer.id} />
+      <OfferForm
+        initialData={offer}
+        offerId={offer.id}
+        webhookSecret={process.env.WEBHOOK_SECRET}
+      />
     </div>
   )
 }
