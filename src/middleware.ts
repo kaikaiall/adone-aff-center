@@ -11,8 +11,12 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // アフィリエイターエリア（ログインページを除く）
-  if (pathname.startsWith('/affiliate') && !pathname.startsWith('/affiliate/login')) {
+  // アフィリエイターエリア（ログイン・新規登録ページを除く）
+  if (
+    pathname.startsWith('/affiliate') &&
+    !pathname.startsWith('/affiliate/login') &&
+    !pathname.startsWith('/affiliate/signup')
+  ) {
     const session = req.cookies.get('affiliate_session')?.value
     if (!session) {
       return NextResponse.redirect(new URL('/affiliate/login', req.url))
