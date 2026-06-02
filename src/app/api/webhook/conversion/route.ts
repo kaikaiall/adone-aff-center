@@ -23,6 +23,14 @@ function safeResponse(body: Record<string, unknown>, status = 200) {
   return Response.json({ status: 'received', ...body }, { status })
 }
 
+/** ログ出力用に secret / token フィールドをマスクする */
+function maskSecret(obj: Record<string, unknown>) {
+  const masked = { ...obj }
+  if ('secret' in masked) masked.secret = '***'
+  if ('token' in masked) masked.token = '***'
+  return masked
+}
+
 /** クエリパラメータまたはボディから正規化されたフィールドを取り出す共通処理 */
 function normalizeParams(params: Record<string, unknown>) {
   return {
@@ -230,7 +238,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const params = Object.fromEntries(searchParams.entries())
 
-  console.log('[Webhook] Query params:', JSON.stringify(params))
+  console.log('[Webhook] Query params:', JSON.stringify(maskSecret(params)))
 
   // クエリパラメータが何もない → 疎通確認レスポンス
   if (Object.keys(params).length === 0) {
@@ -278,7 +286,7 @@ export async function POST(request: NextRequest) {
     return safeResponse({ warning: 'Invalid request body' })
   }
 
-  console.log('[Webhook] Received body:', JSON.stringify(body))
+  console.log('[Webhook] Received body:', JSON.stringify(maskSecret(body)))
 
   try {
     const normalized = normalizeParams(body)

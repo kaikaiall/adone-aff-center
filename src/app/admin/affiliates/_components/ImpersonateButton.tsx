@@ -12,7 +12,7 @@ export default function ImpersonateButton({ affiliateId, affiliateName }: Impers
   const handleImpersonate = async () => {
     const confirmed = window.confirm(
       `${affiliateName}としてアフィリエイター画面にログインします。\n\n` +
-      `この操作はセキュリティ監査ログに記録されます。\n` +
+      `この操作はサーバーログに記録されます。\n` +
       `本人のパスワードは変更されません。\n\n` +
       `続行しますか？`,
     )

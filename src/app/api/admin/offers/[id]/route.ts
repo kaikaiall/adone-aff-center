@@ -72,13 +72,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { error } = await supabaseAdmin.from('offers').delete().eq('id', params.id)
+    const { error } = await supabaseAdmin
+      .from('offers')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', params.id)
     if (error) throw error
 
     // Next.jsのページキャッシュを無効化
     revalidatePath('/admin/offers')
 
-    return Response.json({ ok: true })
+    return Response.json({ ok: true, action: 'archived' })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
   }

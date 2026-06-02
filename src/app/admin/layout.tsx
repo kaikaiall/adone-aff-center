@@ -15,6 +15,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
+  // ログイン画面はサイドバーなしのシンプルレイアウト
+  if (pathname.startsWith('/admin/login')) {
+    return <div className="min-h-screen bg-gray-100">{children}</div>
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
       {/* オーバーレイ（モバイル時） */}

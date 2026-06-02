@@ -33,6 +33,7 @@ export default function AffiliateEditModal({ affiliate }: Props) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
   const set = (k: string, v: unknown) => setForm(p => ({ ...p, [k]: v }))
@@ -96,7 +97,12 @@ export default function AffiliateEditModal({ affiliate }: Props) {
               </div>
               <div>
                 <label className={label}>パスワード <span className="text-xs text-gray-400">（空欄=変更しない）</span></label>
-                <input type="text" value={form.password_hash} onChange={e => set('password_hash', e.target.value)} className={cls} placeholder="変更する場合のみ入力" />
+                <div className="relative">
+                  <input type={showPassword ? 'text' : 'password'} value={form.password_hash} onChange={e => set('password_hash', e.target.value)} className={cls} placeholder="変更する場合のみ入力" />
+                  <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs px-1">
+                    {showPassword ? '🙈 非表示' : '👁️ 表示'}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className={label}>電話番号</label>

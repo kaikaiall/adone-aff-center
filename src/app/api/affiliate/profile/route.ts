@@ -33,6 +33,21 @@ export async function PATCH(request: NextRequest) {
       if (field in body) updateData[field] = body[field]
     }
 
+    // email が更新対象の場合、正規化と重複チェックを行う
+    if ('email' in updateData && typeof updateData.email === 'string') {
+      updateData.email = updateData.email.trim().toLowerCase()
+      const { data: existing, error: dupError } = await supabaseAdmin
+        .from('affiliates')
+        .select('id')
+        .eq('email', updateData.email)
+        .neq('id', affiliateId)
+        .maybeSingle()
+      if (dupError) throw dupError
+      if (existing) {
+        return Response.json({ error: 'そのメールアドレスはすでに使用されています' }, { status: 400 })
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('affiliates')
       .update(updateData)

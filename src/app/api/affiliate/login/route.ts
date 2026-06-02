@@ -3,7 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json()
+    const { email: rawEmail, password } = await request.json()
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail
     console.log('[Affiliate Login] Attempt:', email)
 
     if (!email || !password) {

@@ -13,6 +13,7 @@ export default function AffiliateRegisterButton() {
   const [form, setForm] = useState(defaultForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -94,7 +95,12 @@ export default function AffiliateRegisterButton() {
 
               <div>
                 <label className={label}>パスワード * <span className="text-xs text-gray-400">6文字以上</span></label>
-                <input required type="text" value={form.password_hash} onChange={e => set('password_hash', e.target.value)} className={cls} />
+                <div className="relative">
+                  <input required type={showPassword ? 'text' : 'password'} value={form.password_hash} onChange={e => set('password_hash', e.target.value)} className={cls} />
+                  <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs px-1">
+                    {showPassword ? '🙈 非表示' : '👁️ 表示'}
+                  </button>
+                </div>
               </div>
 
               <div>
