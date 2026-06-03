@@ -11,6 +11,7 @@ export default function LinkGenerator({
 }) {
   const [selected, setSelected] = useState<any>(null)
   const [cid, setCid] = useState('')
+  const [affiliateUrl, setAffiliateUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -19,7 +20,14 @@ export default function LinkGenerator({
     setCopied(false)
     // 既存リンクがあれば即表示
     const existing = myLinks.find(l => l.offer_id === offer.id)
-    setCid(existing?.cid || '')
+    if (existing?.cid) {
+      setCid(existing.cid)
+      const base = process.env.NEXT_PUBLIC_APP_URL || window?.location?.origin || ''
+      setAffiliateUrl(`${base}/r/${existing.cid}`)
+    } else {
+      setCid('')
+      setAffiliateUrl('')
+    }
   }
 
   const generateLink = async () => {
@@ -33,14 +41,8 @@ export default function LinkGenerator({
     const data = await res.json()
     setLoading(false)
     if (data.cid) setCid(data.cid)
+    if (data.url) setAffiliateUrl(data.url)
   }
-
-  // LINE友だち追加URLにcidを付与
-  const affiliateUrl = cid && selected?.line_add_url
-    ? `${selected.line_add_url}${selected.line_add_url.includes('?') ? '&' : '?'}cid=${cid}`
-    : cid
-    ? `${window?.location?.origin || ''}/offer/${selected?.id}?cid=${cid}`
-    : ''
 
   const copyLink = () => {
     if (!affiliateUrl) return
