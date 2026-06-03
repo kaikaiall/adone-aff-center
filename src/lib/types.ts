@@ -1,6 +1,6 @@
 // ===== 型定義 =====
 
-export type ConversionStatus = 'pending' | 'approved' | 'rejected'
+export type ConversionStatus = 'pending' | 'approved' | 'rejected' | 'deleted'
 
 export interface Affiliate {
   id: string
@@ -58,6 +58,7 @@ export interface ConversionBackend {
   amount: number
   count: number
   note: string | null
+  status: ConversionStatus
   created_at: string
   created_by: string
 }
