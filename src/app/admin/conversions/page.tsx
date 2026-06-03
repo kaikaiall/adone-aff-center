@@ -39,6 +39,7 @@ export default async function AdminConversionsPage({
       .from('conversions_backend')
       .select('*, affiliates(id, name), offers(id, name)')
       .order('created_at', { ascending: false })
+      .limit(500) // M6対応：無制限取得防止（最新500件）
 
     if (searchParams.status) query = query.eq('status', searchParams.status)
     if (searchParams.affiliate_id) query = query.eq('affiliate_id', searchParams.affiliate_id)
@@ -155,6 +156,7 @@ export default async function AdminConversionsPage({
     .from('conversions')
     .select('*, affiliates(id, name), offers(id, name, optin_price)')
     .order('created_at', { ascending: false })
+    .limit(500) // M6対応：無制限取得防止（最新500件）
 
   if (searchParams.status) query = query.eq('status', searchParams.status)
   if (searchParams.affiliate_id) query = query.eq('affiliate_id', searchParams.affiliate_id)

@@ -10,6 +10,7 @@ export async function GET() {
         offers ( id, name, optin_price )
       `)
       .order('created_at', { ascending: false })
+      .limit(500) // M6対応：無制限取得防止（最新500件）
     if (error) throw error
     return Response.json(data)
   } catch (error) {
