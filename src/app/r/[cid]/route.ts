@@ -102,7 +102,19 @@ export async function GET(
     // HttpOnly=false（意図的に省略 → JSからも読める）
   ].filter(Boolean).join('; ')
 
-  const response = NextResponse.redirect(lineAddUrl, { status: 302 })
+  // cid をリダイレクト先URLに付与（CRM側でカスタムフィールドとして保持させるため）
+  let finalUrl: string
+  try {
+    const url = new URL(lineAddUrl)
+    url.searchParams.set('cid', cid) // 既存の cid パラメータがあれば上書き
+    finalUrl = url.toString()
+  } catch {
+    // 不正URLの場合は文字列結合フォールバック
+    const separator = lineAddUrl.includes('?') ? '&' : '?'
+    finalUrl = `${lineAddUrl}${separator}cid=${encodeURIComponent(cid)}`
+  }
+
+  const response = NextResponse.redirect(finalUrl, { status: 302 })
   response.headers.append('Set-Cookie', cookieOptions)
   return response
 }
