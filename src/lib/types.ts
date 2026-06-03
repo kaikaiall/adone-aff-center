@@ -71,6 +71,20 @@ export interface AffiliateLink {
   created_at: string
 }
 
+export interface LinkClick {
+  id: string
+  cid: string
+  affiliate_id: string | null
+  offer_id: string | null
+  ip_address: string | null
+  user_agent: string | null
+  cookie_id: string | null
+  referer: string | null
+  clicked_at: string
+  matched_at: string | null
+  matched_conversion_id: string | null
+}
+
 export interface LineUser {
   id: string
   line_user_id: string

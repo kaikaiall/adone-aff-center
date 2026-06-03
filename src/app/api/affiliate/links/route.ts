@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
       .eq('offer_id', offer_id)
       .maybeSingle()
 
-    if (existing) return Response.json({ cid: existing.cid })
+    if (existing) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+      return Response.json({ cid: existing.cid, url: `${baseUrl}/r/${existing.cid}` })
+    }
 
     // 新規 cid 生成（aff_xxx_offer_yyy 形式 + ランダム）
     const rand = Math.random().toString(36).substring(2, 8)
@@ -49,7 +52,10 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
     if (error) throw error
-    return Response.json({ cid: data.cid }, { status: 201 })
+
+    // 中継ページ URL を返す（旧: CRM直リンク → 新: /r/[cid]）
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    return Response.json({ cid: data.cid, url: `${baseUrl}/r/${data.cid}` }, { status: 201 })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
   }

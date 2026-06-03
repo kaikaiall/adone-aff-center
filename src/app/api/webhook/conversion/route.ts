@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { findMatchingClick, markClickAsMatched } from '@/lib/conversion-matching'
 
 /**
  * Webhook /api/webhook/conversion
@@ -85,71 +86,115 @@ async function handleConversion(
     console.log('[Webhook] ✅ Secret verified')
   }
 
-  // 必須フィールドチェック（エラーでも 200 を返してステップ配信を保護）
+  // lineUserId は CRM から必ず渡されるため必須
   if (!normalized.lineUserId) {
     console.warn('[Webhook] Missing lineUserId')
     return safeResponse({ warning: 'Missing lineUserId', debug: { received: rawPayload } })
   }
-  if (!normalized.cid) {
-    console.warn('[Webhook] Missing cid')
-    return safeResponse({ warning: 'Missing cid', debug: { received: rawPayload } })
-  }
-  if (!normalized.offerId) {
-    console.warn('[Webhook] Missing offerId')
-    return safeResponse({ warning: 'Missing offerId', debug: { received: rawPayload } })
-  }
+
+  // IP / UA / Cookie を取得（クリック紐付けに使用）
+  const ipAddress =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    null
+  const userAgent = request.headers.get('user-agent') || null
+  const cookieHeader = request.headers.get('cookie') || ''
+  const cookieId = cookieHeader.match(/adone_click_id=([^;]+)/)?.[1] ?? null
 
   try {
-    // アフィリエイターID を解決
+    // ─────────────────────────────────────────
+    // アフィリエイターID を解決（cid 直接 or クリック紐付け）
+    // ─────────────────────────────────────────
     let affiliateId: string | null = null
+    let resolvedOfferId: string | null = normalized.offerId
+    let matchType: 'direct' | 'cookie' | 'ip_ua' | 'ip_only' | 'none' = 'none'
+    let matchedClickId: string | null = null
 
-    console.log('[Webhook] Looking up affiliate_links with cid:', normalized.cid)
-    const { data: linkData, error: linkError } = await supabaseAdmin
-      .from('affiliate_links')
-      .select('affiliate_id')
-      .eq('cid', normalized.cid)
-      .maybeSingle()
-
-    if (linkError) console.error('[Webhook] affiliate_links lookup error:', linkError)
-
-    if (linkData) {
-      affiliateId = linkData.affiliate_id
-      console.log('[Webhook] Affiliate found via affiliate_links:', affiliateId)
-    } else {
-      // cid が直接アフィリエイター ID（aff_001 等）の場合
-      console.log('[Webhook] Not in affiliate_links, trying direct id:', normalized.cid)
-      const { data: affData, error: affError } = await supabaseAdmin
-        .from('affiliates')
-        .select('id')
-        .eq('id', normalized.cid)
+    if (normalized.cid) {
+      // ── 従来パス（cid が渡された場合） ─────────────────────
+      console.log('[Webhook] Looking up affiliate_links with cid:', normalized.cid)
+      const { data: linkData, error: linkError } = await supabaseAdmin
+        .from('affiliate_links')
+        .select('affiliate_id, offer_id')
+        .eq('cid', normalized.cid)
         .maybeSingle()
 
-      if (affError) console.error('[Webhook] affiliates lookup error:', affError)
+      if (linkError) console.error('[Webhook] affiliate_links lookup error:', linkError)
 
-      if (affData) {
-        affiliateId = affData.id
-        console.log('[Webhook] Affiliate found via direct id:', affiliateId)
+      if (linkData) {
+        affiliateId = linkData.affiliate_id
+        if (!resolvedOfferId) resolvedOfferId = linkData.offer_id
+        console.log('[Webhook] Affiliate found via affiliate_links:', affiliateId)
+      } else {
+        // cid が直接 affiliate ID（aff_001 等）の旧式
+        console.log('[Webhook] Not in affiliate_links, trying direct id:', normalized.cid)
+        const { data: affData, error: affError } = await supabaseAdmin
+          .from('affiliates')
+          .select('id')
+          .eq('id', normalized.cid)
+          .maybeSingle()
+
+        if (affError) console.error('[Webhook] affiliates lookup error:', affError)
+        if (affData) {
+          affiliateId = affData.id
+          console.log('[Webhook] Affiliate found via direct id:', affiliateId)
+        }
+      }
+
+      if (affiliateId) {
+        matchType = 'direct'
+        // 直接解決できた場合でも、可能なら link_clicks との紐付けを試みる
+        const matchResult = await findMatchingClick({ cookieId, ipAddress, userAgent })
+        if (matchResult) {
+          matchedClickId = matchResult.click.id
+          console.log('[Webhook] Also matched click record:', matchedClickId, 'type:', matchResult.matchType)
+        }
+      }
+    }
+
+    // ── クリック紐付けパス（cid なし、または cid 解決失敗） ──
+    if (!affiliateId) {
+      console.log('[Webhook] cid not resolved, trying click matching...')
+      const matchResult = await findMatchingClick({ cookieId, ipAddress, userAgent })
+
+      if (matchResult) {
+        affiliateId = matchResult.click.affiliate_id
+        if (!resolvedOfferId) resolvedOfferId = matchResult.click.offer_id
+        matchType = matchResult.matchType
+        matchedClickId = matchResult.click.id
+        console.log('[Webhook] Matched via click record:', matchedClickId, 'type:', matchType)
       }
     }
 
     if (!affiliateId) {
-      console.warn('[Webhook] Affiliate not found for cid:', normalized.cid)
-      return safeResponse({ warning: 'Affiliate not found', debug: { cid: normalized.cid } })
+      console.warn('[Webhook] Affiliate not found: no cid and no matching click')
+      return safeResponse({
+        warning: 'Affiliate not found',
+        debug: { cid: normalized.cid, matchType: 'none' },
+      })
+    }
+
+    if (!resolvedOfferId) {
+      console.warn('[Webhook] offerId not resolved')
+      return safeResponse({
+        warning: 'Missing offerId',
+        debug: { received: rawPayload },
+      })
     }
 
     // 案件IDを検証
-    console.log('[Webhook] Checking offer:', normalized.offerId)
+    console.log('[Webhook] Checking offer:', resolvedOfferId)
     const { data: offerData, error: offerError } = await supabaseAdmin
       .from('offers')
       .select('id')
-      .eq('id', normalized.offerId)
+      .eq('id', resolvedOfferId)
       .maybeSingle()
 
     if (offerError) console.error('[Webhook] offers lookup error:', offerError)
 
     if (!offerData) {
-      console.warn('[Webhook] Offer not found:', normalized.offerId)
-      return safeResponse({ warning: 'Offer not found', debug: { offerId: normalized.offerId } })
+      console.warn('[Webhook] Offer not found:', resolvedOfferId)
+      return safeResponse({ warning: 'Offer not found', debug: { offerId: resolvedOfferId } })
     }
 
     // 重複チェック（同一 LINE UID + 案件 + アフィリエイター）
@@ -157,7 +202,7 @@ async function handleConversion(
       .from('conversions')
       .select('id, status')
       .eq('line_user_id', normalized.lineUserId)
-      .eq('offer_id', normalized.offerId)
+      .eq('offer_id', resolvedOfferId)
       .eq('affiliate_id', affiliateId)
       .maybeSingle()
 
@@ -168,22 +213,17 @@ async function handleConversion(
         conversionId: existingConv.id,
         status: existingConv.status,
         duplicate: true,
+        matchType,
       })
     }
 
     // 成果を挿入
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      null
-    const userAgent = request.headers.get('user-agent') || null
-
     console.log('[Webhook] Inserting conversion...')
     const { data: conversion, error: convError } = await supabaseAdmin
       .from('conversions')
       .insert({
         affiliate_id: affiliateId,
-        offer_id: normalized.offerId,
+        offer_id: resolvedOfferId,
         line_user_id: normalized.lineUserId,
         display_name: normalized.displayName,
         status: 'pending',
@@ -200,6 +240,11 @@ async function handleConversion(
       return safeResponse({ error: 'Failed to insert', debug: { message: convError.message } })
     }
 
+    // クリック記録を紐付け済みにマーク（失敗しても成果記録には影響なし）
+    if (matchedClickId) {
+      await markClickAsMatched(matchedClickId, conversion.id)
+    }
+
     // LINE ユーザー情報を upsert（失敗してもメイン処理には影響させない）
     const { error: userError } = await supabaseAdmin
       .from('users')
@@ -214,10 +259,11 @@ async function handleConversion(
 
     if (userError) console.warn('[Webhook] Users upsert warning:', userError)
 
-    console.log('[Webhook] ===== Success =====')
+    console.log('[Webhook] ===== Success =====', { matchType })
     return safeResponse({
       success: true,
       conversionId: conversion.id,
+      matchType,
     })
   } catch (err) {
     // 想定外の例外もキャッチ → ステップ配信を止めない
