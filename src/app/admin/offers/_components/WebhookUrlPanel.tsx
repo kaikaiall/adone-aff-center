@@ -23,7 +23,7 @@ const CRM_CONFIGS: CRMConfig[] = [
     key: 'proline',
     label: 'プロライン',
     url: (base, offerId) =>
-      `${base}?source=proline&lineUserId=[[uid]]&displayName=[[snsname]]&offerId=${offerId}&cid=[[CID]]`,
+      `${base}?source=proline&lineUserId=[[uid]]&displayName=[[snsname]]&offerId=${offerId}&cid=[[free1]]`,
     method: 'GET',
     settingPath: '管理画面 → 設定 → 外部通知 → コンバージョン通知URL',
     warningPath: [
@@ -31,7 +31,7 @@ const CRM_CONFIGS: CRMConfig[] = [
       'メッセージ本文',
       '配信トリガー設定',
     ],
-    notes: '友だち追加経路パラメータの「cid」がプロライン側で取得できる設定になっている必要があります。',
+    notes: '[[free1]]〜[[free6]] はプロラインのカスタムフィールドのプレースホルダです。ADone中継ページ（/r/[cid]）が ?free1=cid を自動付与するため、CRM側で free1 をユーザー属性として保存してください。',
   },
   {
     key: 'lstep',
@@ -113,9 +113,9 @@ export default function WebhookUrlPanel({ offerId, webhookSecret }: WebhookUrlPa
     }
   }, [])
 
-  // CRM非依存の簡易Webhook URL（lineUserIdのみ必須）
+  // CRM非依存の簡易Webhook URL（lineUserId + cid=[[free1]] を含む）
   const simpleWebhookUrl = baseUrl
-    ? `${baseUrl}?lineUserId=[[uid]]&displayName=[[snsname]]${webhookSecret ? `&secret=${encodeURIComponent(webhookSecret)}` : ''}`
+    ? `${baseUrl}?lineUserId=[[uid]]&displayName=[[snsname]]&cid=[[free1]]${webhookSecret ? `&secret=${encodeURIComponent(webhookSecret)}` : ''}`
     : ''
 
   const handleCopySimple = useCallback(async () => {
@@ -169,16 +169,17 @@ export default function WebhookUrlPanel({ offerId, webhookSecret }: WebhookUrlPa
       {/* おすすめ：CRM非依存の自動紐付け方式        */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4">
-        <p className="text-sm font-bold text-green-800 mb-1">🎯 おすすめ：CRM非依存の自動紐付け方式</p>
-        <p className="text-xs text-green-700 mb-3">
-          アフィリエイターがADoneの紹介リンク（<code className="bg-green-100 px-1 rounded">/r/[cid]</code>）をクリックしてから<strong>30分以内</strong>に友達追加された場合、
-          ADoneが自動でcidとofferIdを補完します。CRM特有のパラメータ名（free1等）を気にする必要はありません。
+        <p className="text-sm font-bold text-green-800 mb-1">🎯 おすすめ：CRM連携による cid 紐付け方式</p>
+        <p className="text-xs text-green-700 mb-2">
+          ADone中継ページ（<code className="bg-green-100 px-1 rounded">/r/[cid]</code>）がLINE友達追加URLへのリダイレクト時に
+          <code className="bg-green-100 px-1 rounded">?free1=cid</code> を自動付与します。
+          以下の手順でCRM側を設定してください。
         </p>
-        <ul className="text-xs text-green-700 list-disc list-inside mb-3 space-y-0.5">
-          <li>プロライン・Lステップ・UTAGE・エルメなどあらゆるCRMで動作</li>
-          <li>CRM側で <code className="bg-green-100 px-1 rounded">lineUserId</code>（LINE UID）が取得できれば成果計測が成立</li>
-          <li>cidやofferIdの引き回しは不要</li>
-        </ul>
+        <ol className="text-xs text-green-700 list-decimal list-inside mb-3 space-y-0.5">
+          <li>CRM側で <code className="bg-green-100 px-1 rounded">free1</code> をユーザー属性（カスタムフィールド）として保存する設定を行う</li>
+          <li>下記Webhook URLをCRMの「外部通知」設定に貼り付ける</li>
+          <li>CRMが友達追加時にこのURLへ <code className="bg-green-100 px-1 rounded">cid=[[free1]]</code> を含めて送信する</li>
+        </ol>
         <div className="flex gap-2">
           <input
             type="text"
@@ -198,7 +199,7 @@ export default function WebhookUrlPanel({ offerId, webhookSecret }: WebhookUrlPa
           </button>
         </div>
         <p className="text-xs text-green-600 mt-2">
-          ※ <code className="bg-green-100 px-1 rounded">[[uid]]</code> と <code className="bg-green-100 px-1 rounded">[[snsname]]</code> はプロラインのプレースホルダです。他のCRMをお使いの場合は下の「上級者向け」を参照してください。
+          ※ <code className="bg-green-100 px-1 rounded">[[uid]]</code>・<code className="bg-green-100 px-1 rounded">[[snsname]]</code>・<code className="bg-green-100 px-1 rounded">[[free1]]</code> はプロラインのプレースホルダです。他のCRMをご利用の場合は、各CRMのカスタムフィールド記法に置き換えて下の「上級者向け」を参照してください。
         </p>
       </div>
 
