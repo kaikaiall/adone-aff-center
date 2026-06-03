@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 export async function GET() {
   try {
+    // password_hash は返却しない（セキュリティ）
     const { data, error } = await supabaseAdmin
       .from('affiliates')
-      .select('*')
+      .select('id, name, email, phone, bank_name, bank_branch, bank_account_type, bank_account_number, bank_account_holder, is_active, created_at, updated_at')
       .order('created_at', { ascending: false })
     if (error) throw error
     return Response.json(data)
@@ -41,10 +43,13 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (existingByEmail) return Response.json({ error: 'このメールアドレスはすでに登録されています' }, { status: 400 })
 
+    // パスワードをハッシュ化してから保存（M1対応）
+    const hashedPassword = await bcrypt.hash(body.password_hash.trim(), 10)
     const { data, error } = await supabaseAdmin
       .from('affiliates')
-      .insert({ ...body, is_active: body.is_active ?? true })
-      .select()
+      .insert({ ...body, password_hash: hashedPassword, is_active: body.is_active ?? true })
+      // password_hash は返却しない（M2対応）
+      .select('id, name, email, phone, bank_name, bank_branch, bank_account_type, bank_account_number, bank_account_holder, is_active, created_at, updated_at')
       .single()
 
     if (error) {

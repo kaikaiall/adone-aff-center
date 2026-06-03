@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -18,6 +19,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (field in body) updateData[field] = body[field]
     }
 
+    // パスワードが更新対象の場合はハッシュ化する（M1対応）
+    if (typeof updateData.password_hash === 'string' && updateData.password_hash) {
+      updateData.password_hash = await bcrypt.hash(updateData.password_hash, 10)
+    }
+
     // メール変更時の重複チェック
     if (updateData.email) {
       const { data: existing } = await supabaseAdmin
@@ -31,11 +37,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
     }
 
+    // password_hash は返却しない（M2対応）
     const { data, error } = await supabaseAdmin
       .from('affiliates')
       .update(updateData)
       .eq('id', params.id)
-      .select()
+      .select('id, name, email, phone, bank_name, bank_branch, bank_account_type, bank_account_number, bank_account_holder, is_active, created_at, updated_at')
       .single()
 
     if (error) {

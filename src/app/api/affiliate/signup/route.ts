@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 /**
  * アフィリエイター新規登録 API
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
         id: newId,
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        password_hash: password, // ※ 現状は既存システムに合わせて平文保存。将来的にbcrypt化を推奨。
+        password_hash: await bcrypt.hash(password, 10),
         is_active: true,
       })
       .select('id, name, email')
