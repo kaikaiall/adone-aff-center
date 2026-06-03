@@ -106,12 +106,13 @@ export async function GET(
   let finalUrl: string
   try {
     const url = new URL(lineAddUrl)
-    url.searchParams.set('cid', cid) // 既存の cid パラメータがあれば上書き
+    url.searchParams.set('cid', cid)   // 既存の cid パラメータがあれば上書き
+    url.searchParams.set('free1', cid) // プロライン用パラメータ（free1〜free6のみ保持される仕様）
     finalUrl = url.toString()
   } catch {
     // 不正URLの場合は文字列結合フォールバック
     const separator = lineAddUrl.includes('?') ? '&' : '?'
-    finalUrl = `${lineAddUrl}${separator}cid=${encodeURIComponent(cid)}`
+    finalUrl = `${lineAddUrl}${separator}cid=${encodeURIComponent(cid)}&free1=${encodeURIComponent(cid)}`
   }
 
   const response = NextResponse.redirect(finalUrl, { status: 302 })
