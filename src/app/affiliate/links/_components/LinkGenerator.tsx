@@ -5,7 +5,22 @@ export default function LinkGenerator({
   offers,
   myLinks,
 }: {
-  offers: any[]
+  offers: Array<{
+    id: string
+    name: string
+    optin_price: number
+    effective_price: number
+    is_special_rate: boolean
+    has_backend?: boolean
+    backend_rate?: number
+    banner_url?: string
+    description?: string
+    appeal_points?: string
+    target_audience?: string
+    lp_url?: string
+    notes?: string
+    [key: string]: unknown
+  }>
   myLinks: any[]
   affiliateId: string
 }) {
@@ -67,7 +82,12 @@ export default function LinkGenerator({
               }`}
             >
               <div className="font-medium text-gray-800 text-sm">{offer.name}</div>
-              <div className="text-green-600 text-sm mt-0.5">¥{offer.optin_price.toLocaleString()}/件</div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-green-600 text-sm">¥{offer.effective_price.toLocaleString()}/件</span>
+                {offer.is_special_rate && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">特別単価</span>
+                )}
+              </div>
               <div className="flex gap-1 mt-1">
                 {offer.has_backend && <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">バックエンドあり</span>}
                 {hasLink && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">リンク取得済</span>}
@@ -83,10 +103,15 @@ export default function LinkGenerator({
         {selected ? (
           <div className="bg-white rounded-xl shadow p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-1">{selected.name}</h2>
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 flex-wrap">
               <span className="bg-green-100 text-green-700 px-3 py-0.5 rounded-full text-sm font-medium">
-                ¥{selected.optin_price.toLocaleString()}/件
+                ¥{selected.effective_price.toLocaleString()}/件
               </span>
+              {selected.is_special_rate && (
+                <span className="bg-amber-100 text-amber-700 px-3 py-0.5 rounded-full text-sm font-medium">
+                  特別単価
+                </span>
+              )}
               {selected.has_backend && (
                 <span className="bg-blue-100 text-blue-700 px-3 py-0.5 rounded-full text-sm">
                   バックエンド {selected.backend_rate ? `${selected.backend_rate}%` : 'あり'}

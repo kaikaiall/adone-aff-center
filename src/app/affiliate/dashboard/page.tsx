@@ -19,7 +19,7 @@ export default async function AffiliateDashboard({
 
   let query = supabaseAdmin
     .from('conversions')
-    .select('*, offers(id, name, optin_price)')
+    .select('*, amount, offers(id, name, optin_price)')
     .eq('affiliate_id', affiliate.id)
     .eq('status', 'approved')
     .order('created_at', { ascending: false })
@@ -48,7 +48,10 @@ export default async function AffiliateDashboard({
 
   const approved = conversions || []
   const monthApproved = approved.filter((c: any) => c.created_at >= monthStart)
-  const optinTotal = approved.reduce((sum: number, c: any) => sum + (c.offers?.optin_price || 0), 0)
+  const optinTotal = approved.reduce((sum: number, c: any) => {
+    const amount = (c.amount && c.amount > 0) ? c.amount : (c.offers?.optin_price || 0)
+    return sum + amount
+  }, 0)
   const backendTotal = (backendRewards || []).reduce((sum: number, r: any) => sum + r.amount, 0)
 
   const offerMap: Record<string, string> = {}
@@ -111,7 +114,7 @@ export default async function AffiliateDashboard({
                       <td className="py-2 text-gray-400 text-xs">{new Date(c.created_at).toLocaleString('ja-JP')}</td>
                       <td className="py-2">{c.offers?.name}</td>
                       <td className="py-2 text-gray-500">{c.display_name || '-'}</td>
-                      <td className="py-2 font-medium text-green-600">¥{(c.offers?.optin_price || 0).toLocaleString()}</td>
+                      <td className="py-2 font-medium text-green-600">¥{((c.amount && c.amount > 0) ? c.amount : (c.offers?.optin_price || 0)).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -123,7 +126,7 @@ export default async function AffiliateDashboard({
                 <div key={c.id} className="border border-gray-100 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-medium">{c.offers?.name}</span>
-                    <span className="font-medium text-green-600 text-sm">¥{(c.offers?.optin_price || 0).toLocaleString()}</span>
+                    <span className="font-medium text-green-600 text-sm">¥{((c.amount && c.amount > 0) ? c.amount : (c.offers?.optin_price || 0)).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-400">
                     <span>{new Date(c.created_at).toLocaleString('ja-JP')}</span>
