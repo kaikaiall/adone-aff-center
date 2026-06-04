@@ -17,17 +17,21 @@ export default async function AdminDashboard() {
   ] = await Promise.all([
     supabaseAdmin.from('offers').select('*', { count: 'exact', head: true }).eq('is_active', true),
     supabaseAdmin.from('affiliates').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('conversions').select('offer_id, status, offers(optin_price)').gte('created_at', monthStart),
+    supabaseAdmin.from('conversions').select('offer_id, status, amount, offers(optin_price)').gte('created_at', monthStart),
     supabaseAdmin.from('conversions_backend').select('amount, status').gte('created_at', monthStart),
     supabaseAdmin
       .from('conversions')
-      .select('*, affiliates(name), offers(name, optin_price)')
+      .select('*, amount, affiliates(name), offers(name, optin_price)')
       .order('created_at', { ascending: false })
       .limit(10),
   ])
 
   const approvedConversions = (monthConversions || []).filter((c: any) => c.status === 'approved')
-  const monthOptinRevenue = approvedConversions.reduce((sum: number, c: any) => sum + (c.offers?.optin_price || 0), 0)
+  // TODO(Phase 4): スナップショット方式に対応（amount 優先、補完前フォールバックとして optin_price を維持）
+  const monthOptinRevenue = approvedConversions.reduce((sum: number, c: any) => {
+    const amount = (c.amount && c.amount > 0) ? c.amount : (c.offers?.optin_price || 0)
+    return sum + amount
+  }, 0)
   const monthBackendRevenue = (monthBackend || [])
     .filter((r: any) => r.status === 'approved')
     .reduce((sum: number, r: any) => sum + r.amount, 0)
@@ -93,7 +97,7 @@ export default async function AdminDashboard() {
                   <td className="py-2">{c.affiliates?.name}</td>
                   <td className="py-2">{c.offers?.name}</td>
                   <td className="py-2 text-gray-500">{c.display_name || '-'}</td>
-                  <td className="py-2 font-medium">¥{(c.offers?.optin_price || 0).toLocaleString()}</td>
+                  <td className="py-2 font-medium">¥{((c.amount && c.amount > 0) ? c.amount : (c.offers?.optin_price || 0)).toLocaleString()}</td>
                   <td className="py-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[c.status] || 'bg-gray-100 text-gray-500'}`}>
                       {statusLabel[c.status] || c.status}
@@ -120,7 +124,7 @@ export default async function AdminDashboard() {
               </div>
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>{new Date(c.created_at).toLocaleString('ja-JP')}</span>
-                <span className="font-medium text-gray-700">¥{(c.offers?.optin_price || 0).toLocaleString()}</span>
+                <span className="font-medium text-gray-700">¥{((c.amount && c.amount > 0) ? c.amount : (c.offers?.optin_price || 0)).toLocaleString()}</span>
               </div>
               {c.display_name && (
                 <div className="text-xs text-gray-400 mt-1">LINE: {c.display_name}</div>

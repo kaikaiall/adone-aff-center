@@ -90,7 +90,8 @@ export default function ConversionRow({ conversion }: { conversion: any }) {
         <td className="px-4 py-2">{conversion.display_name || '-'}</td>
         <td className="px-4 py-2 text-xs text-gray-400 font-mono max-w-[120px] truncate">{conversion.line_user_id}</td>
         <td className="px-4 py-2 text-xs text-gray-400">{conversion.source || '-'}</td>
-        <td className="px-4 py-2 font-medium">¥{(conversion.offers?.optin_price || 0).toLocaleString()}</td>
+        {/* TODO(Phase 4): スナップショット方式に対応（amount 優先、補完前フォールバックとして optin_price を維持） */}
+        <td className="px-4 py-2 font-medium">¥{((conversion.amount && conversion.amount > 0) ? conversion.amount : (conversion.offers?.optin_price || 0)).toLocaleString()}</td>
         <td className="px-4 py-2">
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[localStatus] || statusColor.pending}`}>
             {statusLabel[localStatus] || localStatus}
@@ -116,7 +117,7 @@ export default function ConversionRow({ conversion }: { conversion: any }) {
             </div>
             <div className="flex items-center justify-between text-xs text-gray-400">
               <span>{new Date(conversion.created_at).toLocaleString('ja-JP')}</span>
-              <span className="font-medium text-gray-700">¥{(conversion.offers?.optin_price || 0).toLocaleString()}</span>
+              <span className="font-medium text-gray-700">¥{((conversion.amount && conversion.amount > 0) ? conversion.amount : (conversion.offers?.optin_price || 0)).toLocaleString()}</span>
             </div>
             {(conversion.display_name || conversion.line_user_id) && (
               <div className="text-xs text-gray-400">

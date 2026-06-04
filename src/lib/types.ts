@@ -43,10 +43,21 @@ export interface Conversion {
   line_user_id: string
   display_name: string | null
   status: ConversionStatus
+  amount: number
   source: string | null
   ip_address: string | null
   user_agent: string | null
   raw_payload: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AffiliateOfferRate {
+  id: string
+  affiliate_id: string
+  offer_id: string
+  custom_optin_price: number
+  is_active: boolean
   created_at: string
   updated_at: string
 }

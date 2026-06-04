@@ -154,7 +154,7 @@ export default async function AdminConversionsPage({
   // ── オプトインタブ（デフォルト）──
   let query = supabaseAdmin
     .from('conversions')
-    .select('*, affiliates(id, name), offers(id, name, optin_price)')
+    .select('*, amount, affiliates(id, name), offers(id, name, optin_price)')
     .order('created_at', { ascending: false })
     .limit(500) // M6対応：無制限取得防止（最新500件）
 

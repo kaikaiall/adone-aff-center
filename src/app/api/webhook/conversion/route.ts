@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { findMatchingClick, markClickAsMatched } from '@/lib/conversion-matching'
+import { getEffectiveOptinPrice } from '@/lib/pricing'
 
 /**
  * Webhook /api/webhook/conversion
@@ -219,6 +220,7 @@ async function handleConversion(
 
     // 成果を挿入
     console.log('[Webhook] Inserting conversion...')
+    const amount = await getEffectiveOptinPrice(affiliateId, resolvedOfferId)
     const { data: conversion, error: convError } = await supabaseAdmin
       .from('conversions')
       .insert({
@@ -226,6 +228,7 @@ async function handleConversion(
         offer_id: resolvedOfferId,
         line_user_id: normalized.lineUserId,
         display_name: normalized.displayName,
+        amount,
         status: 'pending',
         source: normalized.source,
         ip_address: ipAddress,
